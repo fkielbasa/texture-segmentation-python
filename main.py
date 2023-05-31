@@ -1,12 +1,9 @@
 import tkinter as tk
 from tkinter import filedialog
 from skimage.filters import threshold_otsu
-from skimage.measure import label
-import numpy
+import numpy as np
 from PIL import ImageTk, Image
 import cv2
-from matplotlib import pyplot as plt
-import numpy as np
 
 
 class App:
@@ -93,51 +90,55 @@ class App:
             # Wczytywanie obrazu jako obiekt typu numpy array
             img = cv2.imread(self.img_path)
 
+            # Konwersja obrazu do skali szarości
+            gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
             # Zastosowanie binaryzacji z użyciem progu
-            ret, bw1 = cv2.threshold(
-                img, int(self.threshold * 255), 255, cv2.THRESH_BINARY
+            ret, bw = cv2.threshold(
+                gray_img, int(self.threshold * 255), 255, cv2.THRESH_BINARY
             )
 
             # Konwersja z obiektu typu numpy array do PIL Image
-            self.bw_img = Image.fromarray(bw1)
+            self.bw_img = Image.fromarray(bw)
             # Konwersja PIL Image do formatu, który może być wyświetlony w Tkinter
             self.bw_img = ImageTk.PhotoImage(self.bw_img)
             # Wyświetlanie zbinaryzowanego obrazu
             self.bw_label.configure(image=self.bw_img)
             self.bw_label.image = self.bw_img
 
-            # Wykrycie pierwszej tekstury
-            texture1_mask = cv2.inRange(img, (0, 0, 0), (50, 50, 50))
+            # Tworzenie maski trzeciego obrazu
+            mask = cv2.inRange(bw, 0, 50)
 
-            # Wykrycie drugiej tekstury
-            texture2_mask = cv2.inRange(img, (200, 200, 200), (255, 255, 255))
+            # Zastosowanie maski na trzecim obrazie
+            masked_img = self.apply_mask(img, mask)
 
-            # Utworzenie macierzy etykiet
-            label_matrix = np.zeros_like(texture1_mask)
-            label_matrix[texture1_mask == 255] = 1
-            label_matrix[texture2_mask == 255] = 2
+            # Konwersja obrazu do formatu RGB
+            masked_img_rgb = cv2.cvtColor(masked_img, cv2.COLOR_BGR2RGB)
 
-            # Utworzenie dwóch oddzielnych obrazów dla każdej tekstury
-            texture1 = cv2.bitwise_and(img, img, mask=texture1_mask)
-            texture2 = cv2.bitwise_and(img, img, mask=texture2_mask)
+            # Tworzenie obiektu PIL Image
+            masked_img_pil = Image.fromarray(masked_img_rgb)
 
-            # Przypisanie kolorów do etykiet
-            label_colored = np.zeros_like(img)
-            label_colored[label_matrix == 1] = [0, 255, 255]  # Kolor żółty
-            label_colored[label_matrix == 2] = [255, 0, 0]  # Kolor niebieski
-
-            # Nałożenie kolorów na obrazy tekstur
-            texture1_colored = cv2.addWeighted(texture1, 0.5, label_colored, 0.5, 0)
-            texture2_colored = cv2.addWeighted(texture2, 0.5, label_colored, 0.5, 0)
-
-            result = cv2.add(texture1_colored, texture2_colored)
-            result2 = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
-            result_pil = Image.fromarray(result2)
-            self.segmented_img = ImageTk.PhotoImage(result_pil)
+            # Konwersja PIL Image do formatu, który może być wyświetlony w Tkinter
+            masked_img_tk = ImageTk.PhotoImage(masked_img_pil)
 
             # Wyświetlanie segmentowanego obrazu
-            self.segmented_label.configure(image=self.segmented_img)
-            self.segmented_label.image = self.segmented_img
+            self.segmented_label.configure(image=masked_img_tk)
+            self.segmented_label.image = masked_img_tk
+
+    def apply_mask(self, image, mask):
+        # Utworzenie obrazu o rozmiarze maski
+        mask_image = np.zeros_like(image)
+
+        # Ustawienie koloru maski na żółty (255, 255, 0)
+        mask_color = (255, 255, 0)
+
+        # Kopiowanie wartości pikseli z obrazu oryginalnego na obraz maski tylko dla wartości niezerowych w masce
+        mask_image[mask > 0] = mask_color
+
+        # Dodanie maski do obrazu oryginalnego
+        masked_image = cv2.addWeighted(image, 0.7, mask_image, 0.3, 0)
+
+        return masked_image
 
     def update_threshold(self, value):
         self.threshold = float(value)
