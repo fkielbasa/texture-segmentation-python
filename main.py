@@ -9,7 +9,7 @@ import cv2
 class App:
     def __init__(self, master):
         self.master = master
-        self.master.title("Segmentacja teksturowa")
+        self.master.title("Segmentacja tekstury")
         self.img_path = ""
         self.img = None
         self.bw_img = None
@@ -18,6 +18,12 @@ class App:
 
         # Ustawienie tła na czarne
         self.master.configure(bg="black")
+
+        # Tytuł
+        self.title_label = tk.Label(
+            self.master, text="Segmentacja tekstury", bg="black", fg="white", font=("Arial", 16, "bold")
+        )
+        self.title_label.pack(padx=10, pady=10)
 
         # Ramka dla przycisku wyboru pliku
         self.select_frame = tk.Frame(self.master, bg="black")
@@ -28,18 +34,6 @@ class App:
             self.select_frame, text="Wybierz obraz", command=self.select_image
         )
         self.select_button.pack(side="left")
-
-        # Ramka dla obrazów
-        self.image_frame = tk.Frame(self.master, bg="black")
-        self.image_frame.pack()
-
-        # Etykieta do wyświetlenia oryginalnego obrazu
-        self.orig_label = tk.Label(self.image_frame, bg="black")
-        self.orig_label.pack(side="left", padx=10)
-
-        # Etykieta do wyświetlenia zbinaryzowanego obrazu
-        self.bw_label = tk.Label(self.image_frame, bg="black")
-        self.bw_label.pack(side="left", padx=10)
 
         # Suwak do ustawiania progu binaryzacji
         self.threshold_slider = tk.Scale(
@@ -64,9 +58,33 @@ class App:
         )
         self.threshold_label.pack(anchor="n", padx=10)
 
+        # Ramka dla obrazów
+        self.image_frame = tk.Frame(self.master, bg="black")
+        self.image_frame.pack()
+
+        # Etykieta do wyświetlenia oryginalnego obrazu
+        self.orig_label = tk.Label(self.image_frame, bg="black")
+        self.orig_label.pack(side="left", padx=10)
+
+        # Etykieta do wyświetlenia zbinaryzowanego obrazu
+        self.bw_label = tk.Label(self.image_frame, bg="black")
+        self.bw_label.pack(side="left", padx=10)
+
         # Etykieta do wyświetlenia segmentowanego obrazu
         self.segmented_label = tk.Label(self.master, bg="black")
         self.segmented_label.pack(padx=10, pady=10)
+
+        # Przycisk do zapisu segmentowanego obrazu
+        self.save_segmented_button = tk.Button(
+            self.master, text="Zapisz segmentowany obraz", command=self.save_segmented_image
+        )
+        self.save_segmented_button.pack(padx=10, pady=5)
+
+        # Przycisk do zapisu obrazu z maską
+        self.save_masked_button = tk.Button(
+            self.master, text="Zapisz obraz z maską", command=self.save_masked_image
+        )
+        self.save_masked_button.pack(padx=10, pady=5)
 
         # Minimalna wielkość okna
         self.master.minsize(width=800, height=400)
@@ -145,6 +163,63 @@ class App:
         # Segmentacja obrazu po zmianie progu
         self.segment_image()
 
+    def save_segmented_image(self):
+        if self.segmented_img:
+            # Wybieranie miejsca zapisu segmentowanego obrazu
+            save_path = filedialog.asksaveasfilename(
+                title="Zapisz segmentowany obraz",
+                defaultextension=".png",
+                filetypes=(("PNG files", "*.png"), ("All files", "*.*")),
+            )
+            if save_path:
+                # Konwersja PhotoImage do Image
+                image_pil = self.segmented_img
+                image_pil = image_pil._PhotoImage__photo
+                image_pil = ImageTk.getimage(image_pil)
+
+                # Zapisywanie segmentowanego obrazu
+                image_pil.save(save_path)
+
+    def save_masked_image(self):
+        if self.img_path:
+            # Wczytywanie obrazu jako obiekt typu numpy array
+            img = cv2.imread(self.img_path)
+
+            # Wykrycie pierwszej tekstury
+            texture1_mask = cv2.inRange(img, (0, 0, 0), (50, 50, 50))
+
+            # Wykrycie drugiej tekstury
+            texture2_mask = cv2.inRange(img, (200, 200, 200), (255, 255, 255))
+
+            # Utworzenie macierzy etykiet
+            label_matrix = np.zeros_like(texture1_mask)
+            label_matrix[texture1_mask == 255] = 1
+            label_matrix[texture2_mask == 255] = 2
+
+            # Przypisanie kolorów do etykiet
+            label_colored = np.zeros_like(img)
+            label_colored[label_matrix == 1] = [0, 255, 255]  # Kolor żółty
+            label_colored[label_matrix == 2] = [255, 0, 0]  # Kolor niebieski
+
+            # Nałożenie kolorów na obrazy tekstur
+            texture1_colored = cv2.addWeighted(img, 0.5, label_colored, 0.5, 0)
+            texture2_colored = cv2.addWeighted(img, 0.5, label_colored, 0.5, 0)
+
+            result = cv2.add(texture1_colored, texture2_colored)
+            result2 = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+
+            # Konwersja obrazu do formatu PIL Image
+            result_pil = Image.fromarray(result2)
+
+            # Wybieranie miejsca zapisu obrazu z maską
+            save_path = filedialog.asksaveasfilename(
+                title="Zapisz obraz z maską",
+                defaultextension=".png",
+                filetypes=(("PNG files", "*.png"), ("All files", "*.*")),
+            )
+            if save_path:
+                # Zapisywanie obrazu z maską
+                result_pil.save(save_path)
 
 root = tk.Tk()
 app = App(root)
