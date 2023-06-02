@@ -131,7 +131,6 @@ class App:
 
             # Wykrycie drugiej tekstury
             texture2_mask = cv2.inRange(img, (200, 200, 200), (255, 255, 255))
-
             # Utworzenie macierzy etykiet
             label_matrix = np.zeros_like(texture1_mask)
             label_matrix[texture1_mask == 255] = 1
