@@ -4,8 +4,11 @@ from tkinter import ttk, filedialog
 import PIL
 import cv2
 import numpy as np
-from PIL import ImageTk
+from PIL import ImageTk, ImageOps
 from PIL.Image import Image
+from matplotlib import pyplot as plt
+from skimage.color import rgb2gray
+from skimage.filters import gabor, try_all_threshold
 
 root = tk.Tk()
 root.title("Segmentacja teksturowa")
@@ -64,35 +67,45 @@ def wczytaj_obraz():
 def segmentuj():
     obraz = frame1.image
     obraz1 = np.array(obraz)
-    gray_img = cv2.cvtColor(obraz1, cv2.COLOR_BGR2GRAY)
+    xd = cv2.imread("tekstura.jpg")
+    image_gray = rgb2gray(xd)
 
-    # Utworzenie filtrów Gabora o różnych kierunkach i częstotliwościach
-    filtry_gabora = []
-    for theta in np.arange(0, np.pi, np.pi / 4):
-        for sigma in (1, 3):
-            filtry_gabora.append(cv2.getGaborKernel((21, 21), sigma, theta, 10, 0.5, 0, ktype=cv2.CV_32F))
+    # Parametry filtru Gabora
+    frequencies = [0.1, 0.2, 0.3]
+    theta = [0, np.pi / 4, np.pi / 2]
 
-    # Konwolucja obrazu z filtrami Gabora
-    wynik_konwolucji = np.zeros_like(gray_img)
-    for filtr in filtry_gabora:
-        filtr_img = cv2.filter2D(gray_img, cv2.CV_8UC3, filtr)
-        wynik_konwolucji = np.maximum(wynik_konwolucji, filtr_img)
+    # Utworzenie filtrów Gabora
+    gabor_filters = []
+    for freq in frequencies:
+        for angle in theta:
+            gabor_filters.append(gabor(image_gray, frequency=freq, theta=angle))
 
-    # Przygotowanie obrazu dla algorytmu K-means
-    dane_wejsciowe = np.float32(wynik_konwolucji.reshape(-1, 1))
+    # Wybór odpowiedniego progu dla każdego filtra
+    thresholds = []
+    for filt in gabor_filters:
+        thresh = try_all_threshold(filt)[0]
+        thresholds.append(thresh)
 
-    # Zastosowanie algorytmu K-means do segmentacji
-    kmeans = cv2.KMeans(n_clusters=5)
-    kmeans.fit(dane_wejsciowe)
+    # Segmentacja obrazu na podstawie progów
+    segmented_image = np.zeros_like(image_gray)
+    for filt, thresh in zip(gabor_filters, thresholds):
+        segmented_image[filt > thresh] = 1
 
-    # Przypisanie etykiet do pikseli
-    etykiety = kmeans.labels_
-    obraz_segmentowany = etykiety.reshape(gray_img.shape)
+    # Wyświetlenie wyników
+    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+    ax = axes.ravel()
+    ax[0].imshow(xd, cmap='gray')
+    ax[0].set_title('Oryginalny obraz')
+    ax[1].imshow(image_gray, cmap='gray')
+    ax[1].set_title('Obraz w skali szarości')
+    ax[2].imshow(segmented_image, cmap='gray')
+    ax[2].set_title('Segmentacja tekstur')
+    plt.tight_layout()
+    plt.show()
 
-    # Umożliwienie wyrównania histogramu dla lepszej wizualizacji
-    obraz_wyrównany = cv2.equalizeHist(obraz_segmentowany)
+    # frame2.configure(image=photo)
+    # frame2.image = photo
 
-    return obraz_wyrównany
 
 
 
