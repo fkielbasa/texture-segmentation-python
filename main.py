@@ -48,6 +48,7 @@ def wczytaj_obraz():
         frame1.configure(image=image_tk)
         frame1.image = image_tk
         frame1.configure(bg="#b4bbbf")
+
         # frame2.configure(image=image_tk)
         # frame2.image = image_tk
         # frame2.configure(bg="#b4bbbf")
@@ -59,8 +60,9 @@ def wczytaj_obraz():
         # frame4.configure(bg="#b4bbbf")
 
 def segmentuj():
-
-   pass
+    obraz = frame1.image
+    frame2.configure(image=obraz)
+    pass
 
 
 title_label = tk.Label(root, text="Segmentacja teksturowa", font=("Helvetica", 24),bg="#b4bbbf", fg="black")
@@ -72,7 +74,7 @@ label.pack(fill='y', side='left')
 #button = tk.Button(label, text="Wczytaj obraz", width=20, font=('Helvetica', 12),bg="white",pady=8)
 button = ttk.Button(label, text="Wczytaj obraz", width=20,  style='Custom.TButton', command=wczytaj_obraz)
 button.pack(padx=30, pady=30)
-button = ttk.Button(label, text="Segmentuj", width=20,  style='Custom.TButton',)
+button = ttk.Button(label, text="Segmentuj", width=20,  style='Custom.TButton',command=segmentuj)
 button.pack(padx=30, pady=30)
 button = ttk.Button(label, text="Zapisz obraz", width=20,  style='Custom.TButton')
 button.pack(padx=30, pady=30)
@@ -86,6 +88,7 @@ label_img.pack(fill='x', padx=100, pady=50)
 
 frame1_container = tk.Frame(label_img, bg="#b4bbbf", padx=20, pady=20)
 frame1_container.place(relx=0, rely=0, relwidth=0.5, relheight=0.5)
+
 
 frame2_container = tk.Frame(label_img, bg="#b4bbbf", padx=20, pady=20)
 frame2_container.place(relx=0.5, rely=0, relwidth=0.5, relheight=0.5)
