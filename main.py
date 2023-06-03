@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog
 
 import PIL
+import cv2
+import numpy as np
 from PIL import ImageTk
 from PIL.Image import Image
 
@@ -61,8 +63,38 @@ def wczytaj_obraz():
 
 def segmentuj():
     obraz = frame1.image
-    frame2.configure(image=obraz)
-    pass
+    obraz1 = np.array(obraz)
+    gray_img = cv2.cvtColor(obraz1, cv2.COLOR_BGR2GRAY)
+
+    # Utworzenie filtrów Gabora o różnych kierunkach i częstotliwościach
+    filtry_gabora = []
+    for theta in np.arange(0, np.pi, np.pi / 4):
+        for sigma in (1, 3):
+            filtry_gabora.append(cv2.getGaborKernel((21, 21), sigma, theta, 10, 0.5, 0, ktype=cv2.CV_32F))
+
+    # Konwolucja obrazu z filtrami Gabora
+    wynik_konwolucji = np.zeros_like(gray_img)
+    for filtr in filtry_gabora:
+        filtr_img = cv2.filter2D(gray_img, cv2.CV_8UC3, filtr)
+        wynik_konwolucji = np.maximum(wynik_konwolucji, filtr_img)
+
+    # Przygotowanie obrazu dla algorytmu K-means
+    dane_wejsciowe = np.float32(wynik_konwolucji.reshape(-1, 1))
+
+    # Zastosowanie algorytmu K-means do segmentacji
+    kmeans = cv2.KMeans(n_clusters=5)
+    kmeans.fit(dane_wejsciowe)
+
+    # Przypisanie etykiet do pikseli
+    etykiety = kmeans.labels_
+    obraz_segmentowany = etykiety.reshape(gray_img.shape)
+
+    # Umożliwienie wyrównania histogramu dla lepszej wizualizacji
+    obraz_wyrównany = cv2.equalizeHist(obraz_segmentowany)
+
+    return obraz_wyrównany
+
+
 
 
 title_label = tk.Label(root, text="Segmentacja teksturowa", font=("Helvetica", 24),bg="#b4bbbf", fg="black")
