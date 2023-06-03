@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog
 
 import PIL
 import cv2
+import numpy
 import numpy as np
 from PIL import ImageTk, ImageOps
 from PIL.Image import Image
@@ -66,45 +67,43 @@ def wczytaj_obraz():
 
 def segmentuj():
     obraz = frame1.image
-    obraz1 = np.array(obraz)
-    xd = cv2.imread("tekstura.jpg")
-    image_gray = rgb2gray(xd)
+    obraz_pil = ImageTk.getimage(obraz)  # Konwersja do formatu PIL Image
+    xd = np.array(obraz_pil)
 
-    # Parametry filtru Gabora
-    frequencies = [0.1, 0.2, 0.3]
-    theta = [0, np.pi / 4, np.pi / 2]
+    gray_img = cv2.cvtColor(xd, cv2.COLOR_BGR2GRAY)
 
-    # Utworzenie filtrów Gabora
-    gabor_filters = []
-    for freq in frequencies:
-        for angle in theta:
-            gabor_filters.append(gabor(image_gray, frequency=freq, theta=angle))
+    # Zastosowanie binaryzacji z użyciem progu
+    ret, bw = cv2.threshold(gray_img, int(0.5 * 255), 255, cv2.THRESH_BINARY)
 
-    # Wybór odpowiedniego progu dla każdego filtra
-    thresholds = []
-    for filt in gabor_filters:
-        thresh = try_all_threshold(filt)[0]
-        thresholds.append(thresh)
+    # Konwersja z obiektu typu numpy array do PIL Image
+    bw_img = PIL.Image.fromarray(bw)
+    # Konwersja PIL Image do formatu, który może być wyświetlony w Tkinter
+    bw_img = ImageTk.PhotoImage(bw_img)
+    # Wyświetlanie zbinaryzowanego obrazu
+    frame2.configure(image=bw_img)
+    frame2.image = bw_img
 
-    # Segmentacja obrazu na podstawie progów
-    segmented_image = np.zeros_like(image_gray)
-    for filt, thresh in zip(gabor_filters, thresholds):
-        segmented_image[filt > thresh] = 1
+    # Tworzenie maski trzeciego obrazu
+    # Tworzenie maski trzeciego obrazu
+    mask = cv2.inRange(bw, 0, 50)
 
-    # Wyświetlenie wyników
-    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
-    ax = axes.ravel()
-    ax[0].imshow(xd, cmap='gray')
-    ax[0].set_title('Oryginalny obraz')
-    ax[1].imshow(image_gray, cmap='gray')
-    ax[1].set_title('Obraz w skali szarości')
-    ax[2].imshow(segmented_image, cmap='gray')
-    ax[2].set_title('Segmentacja tekstur')
-    plt.tight_layout()
-    plt.show()
+    # Zastosowanie maski na trzecim obrazie
+    masked_img = apply_mask(xd, mask)
 
-    # frame2.configure(image=photo)
-    # frame2.image = photo
+    # Konwersja obrazu do formatu RGB
+    masked_img_rgb = cv2.cvtColor(masked_img, cv2.COLOR_BGR2RGB)
+
+    # Tworzenie obiektu PIL Image
+    masked_img_pil = Image.fromarray(masked_img_rgb)
+
+    # Konwersja PIL Image do formatu, który może być wyświetlony w Tkinter
+    masked_img_tk = ImageTk.PhotoImage(masked_img_pil)
+
+    # Wyświetlanie segmentowanego obrazu
+    frame3.configure(image=masked_img_tk)
+    frame3.image = masked_img_tk
+
+
 
 
 
