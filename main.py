@@ -1,6 +1,7 @@
 import tkinter as tk
+from random import random
 from tkinter import ttk, filedialog
-
+import random
 import PIL
 import cv2
 import numpy
@@ -8,8 +9,14 @@ import numpy as np
 from PIL import ImageTk, ImageOps
 from PIL.Image import Image
 from matplotlib import pyplot as plt
+from skimage import data
 from skimage.color import rgb2gray
+from skimage.feature import local_binary_pattern
 from skimage.filters import gabor, try_all_threshold
+from skimage.filters.rank import entropy
+from skimage.morphology import disk
+from skimage.restoration import estimate_sigma, denoise_nl_means
+from skimage.util import img_as_float, img_as_ubyte
 
 root = tk.Tk()
 root.title("Segmentacja teksturowa")
@@ -69,6 +76,7 @@ def segmentuj():
     obraz = frame1.image
     obraz_pil = ImageTk.getimage(obraz)  # Konwersja do formatu PIL Image
     xd = np.array(obraz_pil)
+    xd = cv2.imread('structures.jpg')
 
     gray_img = cv2.cvtColor(xd, cv2.COLOR_BGR2GRAY)
 
@@ -82,28 +90,97 @@ def segmentuj():
     # Wyświetlanie zbinaryzowanego obrazu
     frame2.configure(image=bw_img)
     frame2.image = bw_img
+    frame2.configure(bg="#b4bbbf")
 
-    # Tworzenie maski trzeciego obrazu
-    # Tworzenie maski trzeciego obrazu
-    mask = cv2.inRange(bw, 0, 50)
+    texture1_mask = cv2.inRange(xd, (0, 0, 0), (50, 50, 50))
 
-    # Zastosowanie maski na trzecim obrazie
-    masked_img = apply_mask(xd, mask)
+    # Wykrycie drugiej tekstury
+    texture2_mask = cv2.inRange(xd, (200, 200, 200), (255, 255, 255))
 
-    # Konwersja obrazu do formatu RGB
-    masked_img_rgb = cv2.cvtColor(masked_img, cv2.COLOR_BGR2RGB)
+    texture1_color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+    texture2_color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+    texture1_color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+    texture2_color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
+    result = np.copy(xd)
+    # Nałóż maskę na teksturę 1
+    result[texture1_mask == 255] = texture1_color
 
-    # Tworzenie obiektu PIL Image
-    masked_img_pil = Image.fromarray(masked_img_rgb)
+    # Nałóż maskę na teksturę 2
+    result[texture2_mask == 255] = texture2_color
 
-    # Konwersja PIL Image do formatu, który może być wyświetlony w Tkinter
-    masked_img_tk = ImageTk.PhotoImage(masked_img_pil)
+    # Konwertuj obraz do formatu RGB
+    result_rgb = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+
+    # Utwórz obiekt PIL Image z obrazu wynikowego
+    result_pil = PIL.Image.fromarray(result_rgb)
+
+    # Konwertuj obraz PIL Image do formatu, który może być wyświetlony w Tkinter
+    result_tk = ImageTk.PhotoImage(result_pil)
+    # Nałóż maskę na teksturę 1
+    result[texture1_mask == 255] = texture1_color
+
+    # Nałóż maskę na teksturę 2
+    result[texture2_mask == 255] = texture2_color
+
+    # Konwertuj obraz do formatu RGB
+    result_rgb = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+
+    # Utwórz obiekt PIL Image z obrazu wynikowego
+    result_pil = PIL.Image.fromarray(result_rgb)
+
+    # Konwertuj obraz PIL Image do formatu, który może być wyświetlony w Tkinter
+    result_tk = ImageTk.PhotoImage(result_pil)
 
     # Wyświetlanie segmentowanego obrazu
-    frame3.configure(image=masked_img_tk)
-    frame3.image = masked_img_tk
+    frame3.configure(image=result_tk)
+    frame3.image = result_tk
+    frame3.configure(bg="#b4bbbf")
 
+def temp():
+    obraz = frame1.image
+    obraz_pil = ImageTk.getimage(obraz)  # Konwersja do formatu PIL Image
+    xd = np.array(obraz_pil)
+    gray_img = cv2.cvtColor(xd, cv2.COLOR_BGR2GRAY)
+    textures = cv2.feature.textureHaralick(gray_img)
 
+    # Próg, który można dostosować, aby kontrolować wykrywanie tekstur
+    threshold = 0.1
+
+    # Inicjalizacja pustej maski kolorów
+    mask = np.zeros_like(xd)
+
+    # Wykrywanie tekstur i nakładanie różnych kolorowych masek
+    for i, texture in enumerate(textures):
+        if texture.mean() > threshold:
+            mask_color = (0, 255, 0)  # Kolor maski dla wykrytej tekstury (tu: zielony)
+            mask = cv2.bitwise_or(mask,
+                                  np.where(texture > threshold, 1, 0).astype(np.uint8)[:, :, np.newaxis] * np.array(
+                                      mask_color, dtype=np.uint8))
+
+    # Nałożenie maski na oryginalny obraz
+    result = cv2.addWeighted(xd, 0.7, mask, 0.3, 0)
+    result_pil = PIL.Image.fromarray(result)
+
+    # Konwertuj obraz PIL Image do formatu, który może być wyświetlony w Tkinter
+    result_tk = ImageTk.PhotoImage(result_pil)
+    frame3.configure(image=result_tk)
+    frame3.image = result_tk
+def apply_mask(image, mask, mask_color=[0, 255, 255]):
+    # Sprawdzenie rozmiarów obrazu i maski
+    if image.shape[:2] != mask.shape:
+        raise ValueError("Rozmiary obrazu i maski są niezgodne")
+
+    # Kopiowanie obrazu
+    masked_image = np.copy(image)
+
+    # Przygotowanie koloru maski do pasującego rozmiaru obrazu
+    mask_color = np.array(mask_color)
+    mask_color = np.resize(mask_color, image.shape)
+
+    # Nałożenie maski na obraz oryginalny
+    masked_image[mask > 0] = mask_color[mask > 0]
+
+    return masked_image
 
 
 
@@ -118,7 +195,7 @@ label.pack(fill='y', side='left')
 #button = tk.Button(label, text="Wczytaj obraz", width=20, font=('Helvetica', 12),bg="white",pady=8)
 button = ttk.Button(label, text="Wczytaj obraz", width=20,  style='Custom.TButton', command=wczytaj_obraz)
 button.pack(padx=30, pady=30)
-button = ttk.Button(label, text="Segmentuj", width=20,  style='Custom.TButton',command=segmentuj)
+button = ttk.Button(label, text="Segmentuj", width=20,  style='Custom.TButton',command=temp)
 button.pack(padx=30, pady=30)
 button = ttk.Button(label, text="Zapisz obraz", width=20,  style='Custom.TButton')
 button.pack(padx=30, pady=30)
