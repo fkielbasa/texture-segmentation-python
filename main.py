@@ -82,7 +82,9 @@ def segmentuj():
 
     gray_img = cv2.cvtColor(xd, cv2.COLOR_BGR2GRAY)
 
-    ret, bw = cv2.threshold(gray_img, int(0.5 * 255), 255, cv2.THRESH_BINARY)
+
+
+    ret, bw = cv2.threshold(gray_img, int(slider.get() * 255), 255, cv2.THRESH_BINARY)
 
     # Konwersja z obiektu typu numpy array do PIL Image
     bw_img = PIL.Image.fromarray(bw)
@@ -113,17 +115,7 @@ def segmentuj():
     frame3.image = masked_img_tk
     frame3.configure(bg="#b4bbbf")
 
-
-def apply_mask(image, mask):
-    # Tworzenie kopii obrazu
-    masked_image = image.copy()
-
-    # Zastosowanie maski na obrazie
-    masked_image[np.where(mask != 0)] = [255, 255, 255]
-
-    return masked_image
-
-def apply_mask(image, mask, mask_color=[0, 255, 255]):
+def apply_mask(image, mask, mask_color=[255,255,255]):
     # Sprawdzenie rozmiarów obrazu i maski
     if image.shape[:2] != mask.shape:
         raise ValueError("Rozmiary obrazu i maski są niezgodne")
@@ -140,14 +132,16 @@ def apply_mask(image, mask, mask_color=[0, 255, 255]):
 
     return masked_image
 
+def update_threshold(value):
+    slider = float(value)
+    segmentuj()
+
 def change_language():
-    # Define the translations
     translations = {
         "Wczytaj obraz": "Load Image",
         "Segmentuj": "Segment",
         "Zapisz obraz": "Save Image",
         "Zmień język": "Change Language",
-        "Jebać disa": "Fuck disa",
         "Segmentacja teksturowa": "Texture Segmentation"
     }
 
@@ -157,7 +151,6 @@ def change_language():
     segmentuj_text = button2['text']
     zapisz_text = button3['text']
     zmien_text = button4['text']
-    jebac_text = button5['text']
     title_text = title_label['text']
 
     if wczytaj_text in translations.values():
@@ -165,16 +158,13 @@ def change_language():
         button2.configure(text=reverse_translations[segmentuj_text])
         button3.configure(text=reverse_translations[zapisz_text])
         button4.configure(text=reverse_translations[zmien_text])
-        button5.configure(text=reverse_translations[jebac_text])
         title_label.configure(text=reverse_translations[title_text])
     else:
         button1.configure(text=translations[wczytaj_text])
         button2.configure(text=translations[segmentuj_text])
         button3.configure(text=translations[zapisz_text])
         button4.configure(text=translations[zmien_text])
-        button5.configure(text=translations[jebac_text])
         title_label.configure(text=translations[title_text])
-
 
 
 
@@ -193,8 +183,10 @@ button3 = ttk.Button(label, text="Zapisz obraz", width=20,  style='Custom.TButto
 button3.pack(padx=30, pady=30)
 button4 = ttk.Button(label, text="Zmień język", width=20,  style='Custom.TButton',command=change_language)
 button4.pack(padx=30, pady=30)
-button5 = ttk.Button(label, text="Jebać disa", width=20,  style='Custom.TButton')
-button5.pack(padx=30, pady=30)
+
+slider = tk.Scale(label, from_=0, to=1, resolution=0.01, orient=tk.HORIZONTAL,length=200,command=update_threshold)
+slider.set(0.5)
+slider.pack(pady=10)
 
 label_img = tk.Label(root, width= 100, height=100, bg="white")
 label_img.pack(fill='x', padx=100, pady=50)
