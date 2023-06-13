@@ -9,6 +9,7 @@ import numpy as np
 from PIL import ImageTk, ImageOps
 from PIL.Image import Image
 from matplotlib import pyplot as plt
+from numpy import indices
 from skimage import data
 from skimage.color import rgb2gray
 from skimage.feature import local_binary_pattern
@@ -17,6 +18,8 @@ from skimage.filters.rank import entropy
 from skimage.morphology import disk
 from skimage.restoration import estimate_sigma, denoise_nl_means
 from skimage.util import img_as_float, img_as_ubyte
+from sklearn import preprocessing
+from sklearn.cluster import KMeans
 
 root = tk.Tk()
 root.title("Segmentacja teksturowa")
@@ -76,11 +79,9 @@ def segmentuj():
     obraz = frame1.image
     obraz_pil = ImageTk.getimage(obraz)  # Konwersja do formatu PIL Image
     xd = np.array(obraz_pil)
-    xd = cv2.imread('structures.jpg')
 
     gray_img = cv2.cvtColor(xd, cv2.COLOR_BGR2GRAY)
 
-    # Zastosowanie binaryzacji z użyciem progu
     ret, bw = cv2.threshold(gray_img, int(0.5 * 255), 255, cv2.THRESH_BINARY)
 
     # Konwersja z obiektu typu numpy array do PIL Image
@@ -92,79 +93,36 @@ def segmentuj():
     frame2.image = bw_img
     frame2.configure(bg="#b4bbbf")
 
-    texture1_mask = cv2.inRange(xd, (0, 0, 0), (50, 50, 50))
+    # Tworzenie maski trzeciego obrazu
+    mask = cv2.inRange(bw, 0, 50)
 
-    # Wykrycie drugiej tekstury
-    texture2_mask = cv2.inRange(xd, (200, 200, 200), (255, 255, 255))
+    # Zastosowanie maski na trzecim obrazie
+    masked_img = apply_mask(xd, mask)
 
-    texture1_color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
-    texture2_color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
-    texture1_color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
-    texture2_color = [random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)]
-    result = np.copy(xd)
-    # Nałóż maskę na teksturę 1
-    result[texture1_mask == 255] = texture1_color
+    # Konwersja obrazu do formatu RGB
+    masked_img_rgb = cv2.cvtColor(masked_img, cv2.COLOR_BGR2RGB)
 
-    # Nałóż maskę na teksturę 2
-    result[texture2_mask == 255] = texture2_color
+    # Tworzenie obiektu PIL Image
+    masked_img_pil = PIL.Image.fromarray(masked_img_rgb)
 
-    # Konwertuj obraz do formatu RGB
-    result_rgb = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
-
-    # Utwórz obiekt PIL Image z obrazu wynikowego
-    result_pil = PIL.Image.fromarray(result_rgb)
-
-    # Konwertuj obraz PIL Image do formatu, który może być wyświetlony w Tkinter
-    result_tk = ImageTk.PhotoImage(result_pil)
-    # Nałóż maskę na teksturę 1
-    result[texture1_mask == 255] = texture1_color
-
-    # Nałóż maskę na teksturę 2
-    result[texture2_mask == 255] = texture2_color
-
-    # Konwertuj obraz do formatu RGB
-    result_rgb = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
-
-    # Utwórz obiekt PIL Image z obrazu wynikowego
-    result_pil = PIL.Image.fromarray(result_rgb)
-
-    # Konwertuj obraz PIL Image do formatu, który może być wyświetlony w Tkinter
-    result_tk = ImageTk.PhotoImage(result_pil)
+    # Konwersja PIL Image do formatu, który może być wyświetlony w Tkinter
+    masked_img_tk = ImageTk.PhotoImage(masked_img_pil)
 
     # Wyświetlanie segmentowanego obrazu
-    frame3.configure(image=result_tk)
-    frame3.image = result_tk
+    frame3.configure(image=masked_img_tk)
+    frame3.image = masked_img_tk
     frame3.configure(bg="#b4bbbf")
 
-def temp():
-    obraz = frame1.image
-    obraz_pil = ImageTk.getimage(obraz)  # Konwersja do formatu PIL Image
-    xd = np.array(obraz_pil)
-    gray_img = cv2.cvtColor(xd, cv2.COLOR_BGR2GRAY)
-    textures = cv2.feature.textureHaralick(gray_img)
 
-    # Próg, który można dostosować, aby kontrolować wykrywanie tekstur
-    threshold = 0.1
+def apply_mask(image, mask):
+    # Tworzenie kopii obrazu
+    masked_image = image.copy()
 
-    # Inicjalizacja pustej maski kolorów
-    mask = np.zeros_like(xd)
+    # Zastosowanie maski na obrazie
+    masked_image[np.where(mask != 0)] = [255, 255, 255]
 
-    # Wykrywanie tekstur i nakładanie różnych kolorowych masek
-    for i, texture in enumerate(textures):
-        if texture.mean() > threshold:
-            mask_color = (0, 255, 0)  # Kolor maski dla wykrytej tekstury (tu: zielony)
-            mask = cv2.bitwise_or(mask,
-                                  np.where(texture > threshold, 1, 0).astype(np.uint8)[:, :, np.newaxis] * np.array(
-                                      mask_color, dtype=np.uint8))
+    return masked_image
 
-    # Nałożenie maski na oryginalny obraz
-    result = cv2.addWeighted(xd, 0.7, mask, 0.3, 0)
-    result_pil = PIL.Image.fromarray(result)
-
-    # Konwertuj obraz PIL Image do formatu, który może być wyświetlony w Tkinter
-    result_tk = ImageTk.PhotoImage(result_pil)
-    frame3.configure(image=result_tk)
-    frame3.image = result_tk
 def apply_mask(image, mask, mask_color=[0, 255, 255]):
     # Sprawdzenie rozmiarów obrazu i maski
     if image.shape[:2] != mask.shape:
@@ -182,6 +140,40 @@ def apply_mask(image, mask, mask_color=[0, 255, 255]):
 
     return masked_image
 
+def change_language():
+    # Define the translations
+    translations = {
+        "Wczytaj obraz": "Load Image",
+        "Segmentuj": "Segment",
+        "Zapisz obraz": "Save Image",
+        "Zmień język": "Change Language",
+        "Jebać disa": "Fuck disa",
+        "Segmentacja teksturowa": "Texture Segmentation"
+    }
+
+    reverse_translations = {v: k for k, v in translations.items()}
+
+    wczytaj_text = button1['text']
+    segmentuj_text = button2['text']
+    zapisz_text = button3['text']
+    zmien_text = button4['text']
+    jebac_text = button5['text']
+    title_text = title_label['text']
+
+    if wczytaj_text in translations.values():
+        button1.configure(text=reverse_translations[wczytaj_text])
+        button2.configure(text=reverse_translations[segmentuj_text])
+        button3.configure(text=reverse_translations[zapisz_text])
+        button4.configure(text=reverse_translations[zmien_text])
+        button5.configure(text=reverse_translations[jebac_text])
+        title_label.configure(text=reverse_translations[title_text])
+    else:
+        button1.configure(text=translations[wczytaj_text])
+        button2.configure(text=translations[segmentuj_text])
+        button3.configure(text=translations[zapisz_text])
+        button4.configure(text=translations[zmien_text])
+        button5.configure(text=translations[jebac_text])
+        title_label.configure(text=translations[title_text])
 
 
 
@@ -193,16 +185,16 @@ label = tk.Label(root, width=30, height=100, bg="#b4bbbf", anchor='e')
 label.pack(fill='y', side='left')
 
 #button = tk.Button(label, text="Wczytaj obraz", width=20, font=('Helvetica', 12),bg="white",pady=8)
-button = ttk.Button(label, text="Wczytaj obraz", width=20,  style='Custom.TButton', command=wczytaj_obraz)
-button.pack(padx=30, pady=30)
-button = ttk.Button(label, text="Segmentuj", width=20,  style='Custom.TButton',command=temp)
-button.pack(padx=30, pady=30)
-button = ttk.Button(label, text="Zapisz obraz", width=20,  style='Custom.TButton')
-button.pack(padx=30, pady=30)
-button = ttk.Button(label, text="Zmień język", width=20,  style='Custom.TButton')
-button.pack(padx=30, pady=30)
-button = ttk.Button(label, text="Jebać disa", width=20,  style='Custom.TButton')
-button.pack(padx=30, pady=30)
+button1 = ttk.Button(label, text="Wczytaj obraz", width=20,  style='Custom.TButton', command=wczytaj_obraz)
+button1.pack(padx=30, pady=30)
+button2 = ttk.Button(label, text="Segmentuj", width=20,  style='Custom.TButton',command=segmentuj)
+button2.pack(padx=30, pady=30)
+button3 = ttk.Button(label, text="Zapisz obraz", width=20,  style='Custom.TButton')
+button3.pack(padx=30, pady=30)
+button4 = ttk.Button(label, text="Zmień język", width=20,  style='Custom.TButton',command=change_language)
+button4.pack(padx=30, pady=30)
+button5 = ttk.Button(label, text="Jebać disa", width=20,  style='Custom.TButton')
+button5.pack(padx=30, pady=30)
 
 label_img = tk.Label(root, width= 100, height=100, bg="white")
 label_img.pack(fill='x', padx=100, pady=50)
