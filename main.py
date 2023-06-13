@@ -20,7 +20,7 @@ from skimage.restoration import estimate_sigma, denoise_nl_means
 from skimage.util import img_as_float, img_as_ubyte
 from sklearn import preprocessing
 from sklearn.cluster import KMeans
-
+original_image = None
 root = tk.Tk()
 root.title("Segmentacja teksturowa")
 root.geometry("1200x700")
@@ -39,9 +39,12 @@ style.configure('Custom.TButton',
 
 def wczytaj_obraz():
     filepath = filedialog.askopenfilename(filetypes=[("Obrazy", "*.jpg;*.jpeg;*.png")])
-
     if filepath:
+        global original_image
+        original_image = cv2.imread(filepath)
+        original_image = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
         image = PIL.Image.open(filepath)
+        frame4.image = image
         width, height = image.size
         aspect_ratio = width / height
 
@@ -65,24 +68,14 @@ def wczytaj_obraz():
         frame1.image = image_tk
         frame1.configure(bg="#b4bbbf")
 
-        # frame2.configure(image=image_tk)
-        # frame2.image = image_tk
-        # frame2.configure(bg="#b4bbbf")
-        # frame3.configure(image=image_tk)
-        # frame3.image = image_tk
-        # frame3.configure(bg="#b4bbbf")
-        # frame4.configure(image=image_tk)
-        # frame4.image = image_tk
-        # frame4.configure(bg="#b4bbbf")
 
 def segmentuj():
     obraz = frame1.image
-    obraz_pil = ImageTk.getimage(obraz)  # Konwersja do formatu PIL Image
-    xd = np.array(obraz_pil)
-
-    gray_img = cv2.cvtColor(xd, cv2.COLOR_BGR2GRAY)
-
-
+    obraz_pil = ImageTk.getimage(obraz)
+    first = np.array(obraz_pil)
+    obraz = np.copy(original_image)  # Użyj oryginalnego wczytanego obrazu
+    second = np.copy(obraz)
+    gray_img = cv2.cvtColor(first, cv2.COLOR_BGR2GRAY)
 
     ret, bw = cv2.threshold(gray_img, int(slider.get() * 255), 255, cv2.THRESH_BINARY)
 
@@ -99,7 +92,7 @@ def segmentuj():
     mask = cv2.inRange(bw, 0, 50)
 
     # Zastosowanie maski na trzecim obrazie
-    masked_img = apply_mask(xd, mask)
+    masked_img = apply_mask(first, mask)
 
     # Konwersja obrazu do formatu RGB
     masked_img_rgb = cv2.cvtColor(masked_img, cv2.COLOR_BGR2RGB)
@@ -114,8 +107,52 @@ def segmentuj():
     frame3.configure(image=masked_img_tk)
     frame3.image = masked_img_tk
     frame3.configure(bg="#b4bbbf")
+    texture1_mask = cv2.inRange(second, (0, 0, 0), (50, 50, 50))
 
-def apply_mask(image, mask, mask_color=[255,255,255]):
+    texture2_mask = cv2.inRange(second, (200, 200, 200), (255, 255, 255))
+
+    label_matrix = np.zeros_like(texture1_mask)
+    label_matrix[texture1_mask == 255] = 1
+    label_matrix[texture2_mask == 255] = 2
+
+
+    # Utworzenie dwóch oddzielnych obrazów dla każdej tekstury
+    texture1 = cv2.bitwise_and(second, second, mask=texture1_mask)
+    texture2 = cv2.bitwise_and(second, second, mask=texture2_mask)
+
+    label_colored = np.zeros_like(second)
+    label_colored[label_matrix == 1] = [0, 255,0]  # kolor żółty
+    label_colored[label_matrix == 2] = [0 ,0, 255]  # kolor niebieski
+
+    texture1_colored = cv2.addWeighted(texture1, 0.5, label_colored, 0.5, 0)
+    texture2_colored = cv2.addWeighted(texture2, 0.5, label_colored, 0.5, 0)
+
+    result = cv2.add(texture1_colored, texture2_colored)
+    result2 = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
+    result_pil = PIL.Image.fromarray(result2)
+    if result_pil:
+        width, height = result_pil.size
+        aspect_ratio = width / height
+
+        label_width = frame4.winfo_width()
+        label_height = frame4.winfo_height()
+
+        if label_width / label_height > aspect_ratio:
+            new_width = int(label_height * aspect_ratio)
+            new_height = label_height
+        else:
+            new_width = label_width
+            new_height = int(label_width / aspect_ratio)
+
+        result_pil = result_pil.resize((new_width, new_height), PIL.Image.LANCZOS)
+
+        result_tk = ImageTk.PhotoImage(result_pil)
+        frame4.configure(image=result_tk)
+        frame4.image = result_tk
+        frame4.configure(bg="#b4bbbf")
+
+
+def apply_mask(image, mask, mask_color=[0,255,0]):
     # Sprawdzenie rozmiarów obrazu i maski
     if image.shape[:2] != mask.shape:
         raise ValueError("Rozmiary obrazu i maski są niezgodne")
