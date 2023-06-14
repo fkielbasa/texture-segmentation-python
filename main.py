@@ -108,28 +108,48 @@ def segmentuj():
     frame3.image = masked_img_tk
     frame3.configure(bg="#b4bbbf")
     texture1_mask = cv2.inRange(second, (0, 0, 0), (50, 50, 50))
-
     texture2_mask = cv2.inRange(second, (200, 200, 200), (255, 255, 255))
+    texture3_mask = cv2.inRange(second, (50, 50, 50), (255, 255, 255))
+    texture4_mask = cv2.inRange(second, (50, 50, 50), (150, 150, 150))
+    texture5_mask = cv2.inRange(second, (100, 100, 100), (200, 200, 200))
+    texture6_mask = cv2.inRange(second, (150, 150, 150), (255, 255, 255))
 
     label_matrix = np.zeros_like(texture1_mask)
     label_matrix[texture1_mask == 255] = 1
     label_matrix[texture2_mask == 255] = 2
+    label_matrix[texture3_mask == 255] = 3
+    label_matrix[texture4_mask == 255] = 4
+    label_matrix[texture5_mask == 255] = 5
+    label_matrix[texture6_mask == 255] = 6
 
-
-    # Utworzenie dwóch oddzielnych obrazów dla każdej tekstury
     texture1 = cv2.bitwise_and(second, second, mask=texture1_mask)
     texture2 = cv2.bitwise_and(second, second, mask=texture2_mask)
+    texture3 = cv2.bitwise_and(second, second, mask=texture3_mask)
+    texture4 = cv2.bitwise_and(second, second, mask=texture4_mask)
+    texture5 = cv2.bitwise_and(second, second, mask=texture5_mask)
+    texture6 = cv2.bitwise_and(second, second, mask=texture6_mask)
 
     label_colored = np.zeros_like(second)
-    label_colored[label_matrix == 1] = [0, 255,0]  # kolor żółty
-    label_colored[label_matrix == 2] = [0 ,0, 255]  # kolor niebieski
+    label_colored[label_matrix == 1] = [0, 255, 0]
+    label_colored[label_matrix == 2] = [0, 0, 255]
+    label_colored[label_matrix == 3] = [255, 0, 255]
+    label_colored[label_matrix == 4] = [255, 0, 0]
+    label_colored[label_matrix == 5] = [255, 255, 0]
+    label_colored[label_matrix == 6] = [0, 255, 255]
 
     texture1_colored = cv2.addWeighted(texture1, 0.5, label_colored, 0.5, 0)
     texture2_colored = cv2.addWeighted(texture2, 0.5, label_colored, 0.5, 0)
+    texture3_colored = cv2.addWeighted(texture3, 0.5, label_colored, 0.5, 0)
+    texture4_colored = cv2.addWeighted(texture4, 0.5, label_colored, 0.5, 0)
+    texture5_colored = cv2.addWeighted(texture5, 0.5, label_colored, 0.5, 0)
+    texture6_colored = cv2.addWeighted(texture6, 0.5, label_colored, 0.5, 0)
 
-    result = cv2.add(texture1_colored, texture2_colored)
-    result2 = cv2.cvtColor(result, cv2.COLOR_BGR2RGB)
-    result_pil = PIL.Image.fromarray(result2)
+    temp = cv2.add(texture1_colored, texture2_colored)
+    temp = cv2.add(temp, texture3_colored)
+    temp = cv2.add(temp, texture4_colored)
+    temp = cv2.add(temp, texture5_colored)
+    result = cv2.add(temp, texture6_colored)
+    result_pil = PIL.Image.fromarray(result)
     if result_pil:
         width, height = result_pil.size
         aspect_ratio = width / height
@@ -177,7 +197,8 @@ def change_language():
     translations = {
         "Wczytaj obraz": "Load Image",
         "Segmentuj": "Segment",
-        "Zapisz obraz": "Save Image",
+        "Zapisz obraz 1": "Save Image 1",
+        "Zapisz obraz 2": "Save Image 2",
         "Zmień język": "Change Language",
         "Segmentacja teksturowa": "Texture Segmentation"
     }
@@ -187,20 +208,23 @@ def change_language():
     wczytaj_text = button1['text']
     segmentuj_text = button2['text']
     zapisz_text = button3['text']
-    zmien_text = button4['text']
+    zapisz_text1 = button4['text']
+    zmien_text = button5['text']
     title_text = title_label['text']
 
     if wczytaj_text in translations.values():
         button1.configure(text=reverse_translations[wczytaj_text])
         button2.configure(text=reverse_translations[segmentuj_text])
         button3.configure(text=reverse_translations[zapisz_text])
-        button4.configure(text=reverse_translations[zmien_text])
+        button4.configure(text=reverse_translations[zapisz_text1])
+        button5.configure(text=reverse_translations[zmien_text])
         title_label.configure(text=reverse_translations[title_text])
     else:
         button1.configure(text=translations[wczytaj_text])
         button2.configure(text=translations[segmentuj_text])
         button3.configure(text=translations[zapisz_text])
-        button4.configure(text=translations[zmien_text])
+        button4.configure(text=translations[zapisz_text1])
+        button5.configure(text=translations[zmien_text])
         title_label.configure(text=translations[title_text])
 
 
@@ -216,10 +240,12 @@ button1 = ttk.Button(label, text="Wczytaj obraz", width=20,  style='Custom.TButt
 button1.pack(padx=30, pady=30)
 button2 = ttk.Button(label, text="Segmentuj", width=20,  style='Custom.TButton',command=segmentuj)
 button2.pack(padx=30, pady=30)
-button3 = ttk.Button(label, text="Zapisz obraz", width=20,  style='Custom.TButton')
+button3 = ttk.Button(label, text="Zapisz obraz 1", width=20,  style='Custom.TButton')
 button3.pack(padx=30, pady=30)
-button4 = ttk.Button(label, text="Zmień język", width=20,  style='Custom.TButton',command=change_language)
+button4 = ttk.Button(label, text="Zapisz obraz 2", width=20,  style='Custom.TButton')
 button4.pack(padx=30, pady=30)
+button5 = ttk.Button(label, text="Zmień język", width=20,  style='Custom.TButton',command=change_language)
+button5.pack(padx=30, pady=30)
 
 slider = tk.Scale(label, from_=0, to=1, resolution=0.01, orient=tk.HORIZONTAL,length=200,command=update_threshold)
 slider.set(0.5)
