@@ -193,6 +193,40 @@ def update_threshold(value):
     slider = float(value)
     segmentuj()
 
+def save_image_1():
+    obraz = frame3.image
+    if obraz:
+        save_path = filedialog.asksaveasfilename(
+            title="Zapisz segmentowany obraz",
+            defaultextension=".png",
+            filetypes=(("PNG files", "*.png"), ("All files", "*.*")),
+        )
+        if save_path:
+            # Konwersja PhotoImage do Image
+            image_pil = obraz
+            image_pil = image_pil._PhotoImage__photo
+            image_pil = ImageTk.getimage(image_pil)
+
+            # Zapisywanie segmentowanego obrazu
+            image_pil.save(save_path)
+
+def save_image_2():
+    obraz = frame4.image
+    if obraz:
+        save_path = filedialog.asksaveasfilename(
+            title="Zapisz segmentowany obraz",
+            defaultextension=".png",
+            filetypes=(("PNG files", "*.png"), ("All files", "*.*")),
+        )
+        if save_path:
+            # Konwersja PhotoImage do Image
+            image_pil = obraz
+            image_pil = image_pil._PhotoImage__photo
+            image_pil = ImageTk.getimage(image_pil)
+
+            # Zapisywanie segmentowanego obrazu
+            image_pil.save(save_path)
+
 def change_language():
     translations = {
         "Wczytaj obraz": "Load Image",
@@ -240,9 +274,9 @@ button1 = ttk.Button(label, text="Wczytaj obraz", width=20,  style='Custom.TButt
 button1.pack(padx=30, pady=30)
 button2 = ttk.Button(label, text="Segmentuj", width=20,  style='Custom.TButton',command=segmentuj)
 button2.pack(padx=30, pady=30)
-button3 = ttk.Button(label, text="Zapisz obraz 1", width=20,  style='Custom.TButton')
+button3 = ttk.Button(label, text="Zapisz obraz 1", width=20,  style='Custom.TButton',command=save_image_1)
 button3.pack(padx=30, pady=30)
-button4 = ttk.Button(label, text="Zapisz obraz 2", width=20,  style='Custom.TButton')
+button4 = ttk.Button(label, text="Zapisz obraz 2", width=20,  style='Custom.TButton',command=save_image_2)
 button4.pack(padx=30, pady=30)
 button5 = ttk.Button(label, text="Zmień język", width=20,  style='Custom.TButton',command=change_language)
 button5.pack(padx=30, pady=30)
